@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>ExamGuard Pro v2 — Face + Audio Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <style>
+    :root {
+      --ok:     #00ff88;
+      --warn:   #ffcc00;
+      --danger: #ff2244;
+      --bg:     #080a0e;
+      --panel:  #0d1018;
+      --border: #181f2a;
+      --text:   #b0bcd0;
+      --accent: #00aaff;
+      --audio:  #ff6600;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow Condensed', sans-serif;
+      min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 16px;
+      background-image:
+        radial-gradient(ellipse at 15% 40%, #081422 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 70%, #100a00 0%, transparent 50%);
+    }
+
+    header {
+      width: 100%; max-width: 1000px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .logo { font-size: 20px; font-weight: 900; letter-spacing: 3px; color: #fff; text-transform: uppercase; }
+    .logo span { color: var(--accent); }
+    .logo .v2 { color: var(--audio); font-size: 13px; letter-spacing: 2px; margin-left: 6px; }
+    .session-id { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #334; letter-spacing: 2px; }
+
+    /* ─── Layout ─── */
+    .main-grid {
+      width: 100%; max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      grid-template-rows: auto auto;
+      gap: 12px;
+    }
+
+    /* Video */
+    .video-wrapper {
+      position: relative;
+      border: 1px solid var(--border); border-radius: 3px;
+      overflow: hidden; background: #000;
+      grid-row: 1 / 3;
+    }
+    video { width: 100%; display: block; }
+    canvas#overlay {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      pointer-events: none;
+    }
+    .scan-line {
+      position: absolute; top:0; left:0; width:100%; height:2px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      animation: scanMove 4s linear infinite; opacity: 0.3;
+    }
+    @keyframes scanMove { 0%{top:0} 100%{top:100%} }
+    .corner { position:absolute; width:14px; height:14px; }
+    .corner.tl { top:7px; left:7px; border-top:2px solid var(--accent); border-left:2px solid var(--accent); }
+    .corner.tr { top:7px; right:7px; border-top:2px solid var(--accent); border-right:2px solid var(--accent); }
+    .corner.bl { bottom:7px; left:7px; border-bottom:2px solid var(--accent); border-left:2px solid var(--accent); }
+    .corner.br { bottom:7px; right:7px; border-bottom:2px solid var(--accent); border-right:2px solid var(--accent); }
+
+    /* Bottom badges row */
+    .badge-row {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 10px;
+    }
+    .status-badge {
+      padding: 5px 16px; font-size: 13px; font-weight: 700;
+      letter-spacing: 2px; text-transform: uppercase; border-radius: 2px;
+      white-space: nowrap; transition: all 0.2s;
+    }
+    .status-badge.ok     { background:rgba(0,255,136,.12); border:1px solid var(--ok);     color:var(--ok); }
+    .status-badge.warn   { background:rgba(255,204,0,.12);  border:1px solid var(--warn);   color:var(--warn); }
+    .status-badge.danger { background:rgba(255,34,68,.18);  border:1px solid var(--danger); color:var(--danger); animation:bpulse .5s infinite alternate; }
+    .status-badge.none   { background:rgba(200,200,200,.07);border:1px solid #333;          color:#555; }
+    .status-badge.audio-warn { background:rgba(255,102,0,.15); border:1px solid var(--audio); color:var(--audio); animation:bpulse .6s infinite alternate; }
+    @keyframes bpulse { from{box-shadow:0 0 0 var(--danger)} to{box-shadow:0 0 12px var(--danger)} }
+
+    /* ─── Right panels ─── */
+    .side-panel { display:flex; flex-direction:column; gap:10px; }
+
+    .panel-card {
+      background: var(--panel); border:1px solid var(--border);
+      border-radius: 3px; padding: 12px 14px;
+    }
+    .panel-card h4 {
+      font-size:10px; letter-spacing:3px; color:#445;
+      text-transform:uppercase; margin-bottom:10px;
+    }
+
+    /* Dual threat bars */
+    .threat-section { margin-bottom: 10px; }
+    .threat-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .threat-icon { font-size:14px; width:20px; text-align:center; }
+    .threat-bar-wrap { flex:1; height:6px; background:#141a22; border-radius:2px; overflow:hidden; }
+    .threat-bar-fill { height:100%; width:0%; border-radius:2px; transition:width .25s, background .25s; }
+    .threat-pct { font-family:'Share Tech Mono',monospace; font-size:12px; width:34px; text-align:right; }
+    .combined-score {
+      background:#0a0e14; border:1px solid var(--border); border-radius:3px;
+      padding: 8px 10px; display:flex; justify-content:space-between; align-items:center;
+    }
+    .combined-score .lbl { font-size:10px; letter-spacing:2px; color:#445; text-transform:uppercase; }
+    .combined-score .val { font-family:'Share Tech Mono',monospace; font-size:20px; }
+
+    /* Metric rows */
+    .metric-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:5px 0; border-bottom:1px solid var(--border); font-size:12px;
+    }
+    .metric-row:last-child { border-bottom:none; }
+    .metric-label { color:#445; letter-spacing:1px; text-transform:uppercase; font-size:10px; }
+    .metric-val { font-family:'Share Tech Mono',monospace; font-size:13px; }
+    .metric-val.ok     { color:var(--ok); }
+    .metric-val.warn   { color:var(--warn); }
+    .metric-val.danger { color:var(--danger); }
+    .metric-val.audio  { color:var(--audio); }
+
+    /* Waveform canvas */
+    #waveCanvas {
+      width:100%; height:52px; background:#080c10;
+      border:1px solid var(--border); border-radius:2px; display:block;
+      margin-bottom: 8px;
+    }
+
+    /* Freq bands */
+    .freq-bars { display:flex; align-items:flex-end; gap:2px; height:36px; margin-bottom:6px; }
+    .freq-bar { flex:1; background:#1a2030; border-radius:1px; transition:height .1s; min-height:2px; }
+
+    /* Stats grid */
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .stat-box {
+      background:#0a0e14; border:1px solid var(--border);
+      border-radius:2px; padding:8px; text-align:center;
+    }
+    .stat-box .num { font-family:'Share Tech Mono',monospace; font-size:22px; font-weight:700; line-height:1; }
+    .stat-box .lbl { font-size:9px; letter-spacing:2px; color:#334; text-transform:uppercase; margin-top:3px; }
+    .stat-box.d .num{color:var(--danger)} .stat-box.w .num{color:var(--warn)}
+    .stat-box.o .num{color:var(--ok)}     .stat-box.a .num{color:var(--audio)}
+
+    /* Log */
+    #eventLog {
+      max-height:130px; overflow-y:auto;
+      font-family:'Share Tech Mono',monospace; font-size:10px;
+      scrollbar-width:thin; scrollbar-color:#1a2030 transparent;
+    }
+    #eventLog .entry { padding:2px 0; border-bottom:1px solid #0d1018; color:#2a3545; }
+    #eventLog .entry.alert-entry  { color:var(--danger); }
+    #eventLog .entry.warn-entry   { color:var(--warn); }
+    #eventLog .entry.audio-entry  { color:var(--audio); }
+
+    /* Alert Modal */
+    #alertOverlay {
+      display:none; position:fixed; inset:0;
+      border:3px solid var(--danger); z-index:999; pointer-events:none;
+      animation:borderPulse .4s infinite alternate;
+    }
+    @keyframes borderPulse { from{border-color:rgba(255,34,68,.2)} to{border-color:rgba(255,34,68,1)} }
+    #alertModal {
+      display:none; position:fixed; inset:0;
+      background:rgba(0,0,0,.88); z-index:1000;
+      align-items:center; justify-content:center;
+    }
+    #alertModal.show { display:flex; }
+    .modal-box {
+      background:#0d1018; border:2px solid var(--danger);
+      border-radius:4px; padding:32px 44px; text-align:center;
+      box-shadow:0 0 60px rgba(255,34,68,.25);
+      max-width: 420px;
+    }
+    .modal-box .big-icon { font-size:50px; margin-bottom:10px; }
+    .modal-box h2 { font-size:28px; font-weight:900; color:var(--danger); letter-spacing:4px; margin-bottom:6px; }
+    .modal-box p  { font-size:13px; color:#778; margin-bottom:16px; line-height:1.5; }
+    .modal-box .vtype { font-family:'Share Tech Mono',monospace; font-size:12px; margin-bottom:16px; padding:8px; background:#0a0e14; border-radius:2px; }
+    .modal-box .vtype.face-v { color:var(--warn); border:1px solid #2a2000; }
+    .modal-box .vtype.audio-v{ color:var(--audio); border:1px solid #2a1000; }
+    .modal-btn {
+      background:var(--danger); color:#fff; border:none;
+      padding:8px 28px; font-family:'Barlow Condensed',sans-serif;
+      font-size:15px; font-weight:700; letter-spacing:3px; text-transform:uppercase;
+      cursor:pointer; border-radius:2px;
+    }
+    .modal-btn:hover { background:#ff4466; }
+
+    @media(max-width:700px){
+      .main-grid { grid-template-columns:1fr; grid-template-rows:auto; }
+      .video-wrapper { grid-row:auto; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="alertOverlay"></div>
+<div id="alertModal">
+  <div class="modal-box">
+    <div class="big-icon" id="modalIcon">🚨</div>
+    <h2>VIOLATION DETECTED</h2>
+    <div class="vtype" id="modalVtype">—</div>
+    <p>Suspicious behavior has been flagged and logged.<br>Please remain facing the camera and stay silent.</p>
+    <button class="modal-btn" onclick="dismissAlert()">Acknowledge</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo">Exam<span>Guard</span> Pro <span class="v2">+ AUDIO</span></div>
+  <div class="session-id" id="sessionId">SESSION: —</div>
+</header>
+
+<div class="main-grid">
+
+  <!-- Video Feed -->
+  <div class="video-wrapper">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="overlay"></canvas>
+    <div class="scan-line"></div>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+    <div class="badge-row">
+      <div class="status-badge none" id="faceBadge">📷 Initializing...</div>
+      <div class="status-badge none" id="audioBadge">🎙 Mic Off</div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="side-panel">
+
+    <!-- Combined Threat -->
+    <div class="panel-card">
+      <h4>Threat Meters</h4>
+      <div class="threat-section">
+        <div class="threat-row">
+          <span class="threat-icon">👁</span>
+          <div class="threat-bar-wrap"><div class="threat-bar-fill" id="faceBar"></div></div>
+          <span class="threat-pct" id="facePct" style="color:#556">0%</span>
+        </div>
+        <div class="threat-row">
+          <span class="threat-icon">🎙</span>
+          <div class="threat-bar-wrap"><div class="threat-bar-fill" id="audioBar"></div></div>
+          <span class="threat-pct" id="audioPct" style="color:#556">0%</span>
+        </div>
+      </div>
+      <div class="combined-score">
+        <span class="lbl">Combined Score</span>
+        <span class="val" id="combinedVal" style="color:#556">0%</span>
+      </div>
+    </div>
+
+    <!-- Audio Monitor -->
+    <div class="panel-card">
+      <h4>Audio Monitor</h4>
+      <canvas id="waveCanvas"></canvas>
+      <div class="freq-bars" id="freqBars"></div>
+      <div class="metric-row">
+        <span class="metric-label">Volume (dB)</span>
+        <span class="metric-val ok" id="mVol">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Speech Freq</span>
+        <span class="metric-val ok" id="mSpeech">—</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Noise Type</span>
+        <span class="metric-val ok" id="mNoise">Quiet</span>
+      </div>
+    </div>
+
+    <!-- Face Metrics -->
+    <div class="panel-card">
+      <h4>Face Signals</h4>
+      <div class="metric-row">
+        <span class="metric-label">Yaw</span>
+        <span class="metric-val ok" id="mYaw">0.000</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Eye Visibility</span>
+        <span class="metric-val ok" id="mEyeVis">100%</span>
+      </div>
+      <div class="metric-row">
+        <span class="metric-label">Iris Asymmetry</span>
+        <span class="metric-val ok" id="mIris">0.000</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel-card">
+      <h4>Session Stats</h4>
+      <div class="stat-grid">
+        <div class="stat-box d"><div class="num" id="sAlerts">0</div><div class="lbl">Alerts</div></div>
+        <div class="stat-box a"><div class="num" id="sAudio">0</div><div class="lbl">Audio Flags</div></div>
+        <div class="stat-box w"><div class="num" id="sWarn">0</div><div class="lbl">Warnings</div></div>
+        <div class="stat-box o"><div class="num" id="sTime">0</div><div class="lbl">Seconds</div></div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="panel-card">
+      <h4>Event Log</h4>
+      <div id="eventLog"><div class="entry" style="color:#1e2a38">— Session started —</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Session ──────────────────────────────────────────────────────────────────
+document.getElementById('sessionId').textContent =
+  'SESSION: ' + Math.random().toString(36).substr(2,8).toUpperCase();
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let alertCount=0, audioFlags=0, warnCount=0, totalSecs=0;
+let modalShowing=false, lastAlertTime=0;
+let consecutiveFace=0, consecutiveAudio=0;
+let smoothFaceThreat=0, smoothAudioThreat=0;
+
+// ─── Freq bars setup ──────────────────────────────────────────────────────────
+const freqBarsEl = document.getElementById('freqBars');
+const NUM_BARS = 20;
+const freqBarEls = [];
+for (let i=0; i<NUM_BARS; i++) {
+  const b = document.createElement('div');
+  b.className = 'freq-bar';
+  freqBarsEl.appendChild(b);
+  freqBarEls.push(b);
+}
+
+// ─── Timer ────────────────────────────────────────────────────────────────────
+setInterval(() => {
+  totalSecs++;
+  document.getElementById('sTime').textContent = totalSecs;
+}, 1000);
+
+// ─── Logging ─────────────────────────────────────────────────────────────────
+function logEvent(msg, type='') {
+  const log = document.getElementById('eventLog');
+  const ts  = new Date().toTimeString().substr(0,8);
+  const el  = document.createElement('div');
+  el.className = 'entry' + (type ? ` ${type}-entry` : '');
+  el.textContent = `[${ts}] ${msg}`;
+  log.insertBefore(el, log.firstChild);
+  if (log.children.length > 80) log.removeChild(log.lastChild);
+}
+
+// ─── Alert Modal ──────────────────────────────────────────────────────────────
+function showAlert(reason, type='face') {
+  if (modalShowing) return;
+  if (Date.now() - lastAlertTime < 7000) return;
+  lastAlertTime = Date.now();
+  modalShowing = true;
+  alertCount++;
+  document.getElementById('sAlerts').textContent = alertCount;
+  document.getElementById('modalIcon').textContent = type==='audio' ? '🔊' : '🚨';
+  const vtype = document.getElementById('modalVtype');
+  vtype.textContent = 'VIOLATION: ' + reason;
+  vtype.className = 'vtype ' + (type==='audio' ? 'audio-v' : 'face-v');
+  document.getElementById('alertModal').classList.add('show');
+  document.getElementById('alertOverlay').style.display = 'block';
+  logEvent('🚨 ALERT — ' + reason, 'alert');
+}
+
+function dismissAlert() {
+  modalShowing = false;
+  document.getElementById('alertModal').classList.remove('show');
+  document.getElementById('alertOverlay').style.display = 'none';
+  consecutiveFace = 0; consecutiveAudio = 0;
+  logEvent('✓ Alert acknowledged');
+}
+
+// ─── Threat bar updater ───────────────────────────────────────────────────────
+function setBar(barId, pctId, pct, accentVar) {
+  const p = Math.min(100, Math.round(pct));
+  document.getElementById(barId).style.width = p + '%';
+  const pctEl = document.getElementById(pctId);
+  pctEl.textContent = p + '%';
+  let color;
+  if (p < 30)      color = 'var(--ok)';
+  else if (p < 60) color = 'var(--warn)';
+  else             color = accentVar === 'audio' ? 'var(--audio)' : 'var(--danger)';
+  document.getElementById(barId).style.background = color;
+  pctEl.style.color = color;
+}
+
+function setMetric(id, val, state) {
+  const el = document.getElementById(id);
+  el.textContent = val;
+  el.className = 'metric-val ' + state;
+}
+
+// ─── Combined score ───────────────────────────────────────────────────────────
+function updateCombined() {
+  const combined = Math.min(100, Math.round(smoothFaceThreat * 0.55 + smoothAudioThreat * 0.45));
+  const el = document.getElementById('combinedVal');
+  el.textContent = combined + '%';
+  el.style.color = combined < 30 ? 'var(--ok)' : combined < 60 ? 'var(--warn)' : 'var(--danger)';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+let audioCtx, analyser, micSource, waveData, freqData;
+let waveCtx;
+let audioReady = false;
+const SAMPLE_RATE = 44100;
+
+// Sustained speech detection state
+let speechFrames = 0;
+let ambientLevel = 0;
+let ambientSamples = 0;
+
+async function initAudio() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    analyser  = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.75;
+    micSource = audioCtx.createMediaStreamSource(stream);
+    micSource.connect(analyser);
+    waveData  = new Uint8Array(analyser.fftSize);
+    freqData  = new Uint8Array(analyser.frequencyBinCount);
+
+    // Waveform canvas
+    const wc = document.getElementById('waveCanvas');
+    waveCtx   = wc.getContext('2d');
+    wc.width  = wc.offsetWidth * window.devicePixelRatio || 280;
+    wc.height = 52 * (window.devicePixelRatio || 1);
+
+    audioReady = true;
+    document.getElementById('audioBadge').className = 'status-badge ok';
+    document.getElementById('audioBadge').textContent = '🎙 Mic Active';
+    logEvent('✓ Microphone initialized');
+    audioLoop();
+  } catch(e) {
+    document.getElementById('audioBadge').textContent = '🎙 Mic Denied';
+    logEvent('✗ Microphone access denied', 'warn');
+  }
+}
+
+function audioLoop() {
+  if (!audioReady) return;
+  requestAnimationFrame(audioLoop);
+
+  analyser.getByteTimeDomainData(waveData);
+  analyser.getByteFrequencyData(freqData);
+
+  // ── Draw waveform ────────────────────────────────────────────────────────
+  const W = waveCtx.canvas.width, H = waveCtx.canvas.height;
+  waveCtx.fillStyle = '#080c10';
+  waveCtx.fillRect(0, 0, W, H);
+
+  // Calculate current RMS volume
+  let sumSq = 0;
+  for (let i=0; i<waveData.length; i++) {
+    const v = (waveData[i]-128)/128;
+    sumSq += v*v;
+  }
+  const rms = Math.sqrt(sumSq/waveData.length);
+  const db  = rms > 0.0001 ? 20*Math.log10(rms) : -80;
+
+  // Draw waveform line
+  const audioThreatPct = smoothAudioThreat;
+  const waveColor = audioThreatPct > 60 ? '#ff2244' : audioThreatPct > 30 ? '#ffcc00' : '#00ff88';
+  waveCtx.strokeStyle = waveColor;
+  waveCtx.lineWidth   = 1.5 * (window.devicePixelRatio||1);
+  waveCtx.globalAlpha = 0.8;
+  waveCtx.beginPath();
+  const sliceW = W / waveData.length;
+  for (let i=0; i<waveData.length; i++) {
+    const v = waveData[i]/128;
+    const y = (v*H/2);
+    i===0 ? waveCtx.moveTo(0, y) : waveCtx.lineTo(i*sliceW, y);
+  }
+  waveCtx.stroke();
+  waveCtx.globalAlpha = 1;
+
+  // ── Frequency bars (20 bands) ────────────────────────────────────────────
+  const binCount = analyser.frequencyBinCount;
+  const binsPerBar = Math.floor(binCount / NUM_BARS);
+  for (let b=0; b<NUM_BARS; b++) {
+    let sum = 0;
+    for (let k=0; k<binsPerBar; k++) sum += freqData[b*binsPerBar+k];
+    const avg = sum / binsPerBar / 255;
+    const h = Math.max(4, avg * 36);
+    // Speech range (85–3000Hz) = approx bars 1–14 for 44100Hz FFT
+    const isSpeech = b >= 1 && b <= 14;
+    freqBarEls[b].style.height = h + 'px';
+    freqBarEls[b].style.background = isSpeech
+      ? `rgba(255,102,0,${0.3 + avg*0.7})`
+      : `rgba(0,170,255,${0.2 + avg*0.5})`;
+  }
+
+  // ── Ambient calibration (first 3 seconds) ────────────────────────────────
+  if (ambientSamples < 150) {
+    ambientLevel = (ambientLevel * ambientSamples + rms) / (ambientSamples + 1);
+    ambientSamples++;
+  }
+
+  // ── Speech detection ─────────────────────────────────────────────────────
+  // Check energy in human speech band: 85Hz - 3000Hz
+  // At 44100Hz with 2048 FFT: bin = freq * fftSize / sampleRate
+  const fftSize = analyser.fftSize;
+  const sr = audioCtx.sampleRate;
+  const speechLo = Math.floor(85   * fftSize / sr / 2);
+  const speechHi = Math.floor(3000 * fftSize / sr / 2);
+  let speechEnergy = 0, totalEnergy = 0;
+  for (let i=0; i<freqData.length; i++) {
+    totalEnergy += freqData[i];
+    if (i >= speechLo && i <= speechHi) speechEnergy += freqData[i];
+  }
+  const speechRatio = totalEnergy > 0 ? speechEnergy / totalEnergy : 0;
+
+  // Volume relative to ambient baseline
+  const baseline   = Math.max(ambientLevel, 0.005);
+  const relVolume  = rms / baseline; // 1.0 = ambient, >2.0 = notably louder
+
+  // Threat formula:
+  // - High relative volume above ambient
+  // - High proportion of energy in speech frequencies
+  const volScore    = Math.min(1, Math.max(0, (relVolume - 1.2) / 3.5));   // starts at 1.2x ambient
+  const speechScore = Math.min(1, Math.max(0, (speechRatio - 0.3) / 0.5)); // >30% speech energy
+  const rawAudioThreat = (volScore * 0.6 + speechScore * 0.4) * 100;
+
+  smoothAudioThreat = smoothAudioThreat * 0.8 + rawAudioThreat * 0.2;
+
+  // Sustained speech tracking
+  if (rawAudioThreat > 40) {
+    speechFrames++;
+  } else {
+    speechFrames = Math.max(0, speechFrames - 3);
+  }
+
+  // ── Update audio UI ──────────────────────────────────────────────────────
+  const audioP = Math.min(100, Math.round(smoothAudioThreat));
+  setBar('audioBar', 'audioPct', audioP, 'audio');
+
+  const dbStr = db > -80 ? db.toFixed(1) + ' dB' : 'silent';
+  const dbState = db > -20 ? 'danger' : db > -35 ? 'warn' : 'ok';
+  setMetric('mVol', dbStr, dbState);
+  setMetric('mSpeech', (speechRatio*100).toFixed(0)+'%', speechScore>0.5?'audio':speechScore>0.2?'warn':'ok');
+
+  let noiseLabel, noiseState;
+  if (audioP < 15)       { noiseLabel='Quiet';   noiseState='ok'; }
+  else if (audioP < 35)  { noiseLabel='Noise';   noiseState='warn'; }
+  else if (audioP < 60)  { noiseLabel='Talking?'; noiseState='warn'; }
+  else                   { noiseLabel='SPEECH!'; noiseState='audio'; }
+  setMetric('mNoise', noiseLabel, noiseState);
+
+  // Badge
+  const audioBadge = document.getElementById('audioBadge');
+  if (audioP < 25) {
+    audioBadge.className='status-badge ok'; audioBadge.textContent='🎙 Quiet';
+  } else if (audioP < 55) {
+    audioBadge.className='status-badge warn'; audioBadge.textContent='🔉 Noise Detected';
+  } else {
+    audioBadge.className='status-badge audio-warn'; audioBadge.textContent='🔊 SPEAKING DETECTED';
+  }
+
+  // Trigger alert for sustained speech
+  if (speechFrames > 60) {
+    consecutiveAudio++;
+    if (consecutiveAudio === 1) {
+      warnCount++;
+      document.getElementById('sWarn').textContent = warnCount;
+      audioFlags++;
+      document.getElementById('sAudio').textContent = audioFlags;
+      logEvent('⚠ Sustained speech detected', 'audio');
+    }
+    if (consecutiveAudio >= 3) {
+      showAlert(`VOICE DETECTED — ${(speechRatio*100).toFixed(0)}% speech freq, ${db.toFixed(1)}dB`, 'audio');
+      speechFrames = 0; consecutiveAudio = 0;
+    }
+  } else {
+    consecutiveAudio = Math.max(0, consecutiveAudio-1);
+  }
+
+  updateCombined();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FACE DETECTION
+// ═══════════════════════════════════════════════════════════════════════════════
+const video   = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const ctx     = overlay.getContext('2d');
+
+function dist2D(a,b){ return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2); }
+
+function eyeOpenness(lm, indices) {
+  const ys = indices.map(i=>lm[i].y);
+  return Math.max(...ys)-Math.min(...ys);
+}
+function irisCenter(lm, start) {
+  let x=0,y=0;
+  for(let i=start;i<start+5;i++){x+=lm[i].x;y+=lm[i].y;}
+  return {x:x/5,y:y/5};
+}
+
+function drawOverlay(lm, state) {
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+  if (!lm) return;
+  const W=overlay.width, H=overlay.height;
+  const color = state==='ok'?'#00ff88':state==='warn'?'#ffcc00':'#ff2244';
+  ctx.strokeStyle=color; ctx.lineWidth=1.2; ctx.globalAlpha=0.45;
+  const outline=[10,338,297,332,284,251,389,356,454,323,361,288,
+    397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+  ctx.beginPath();
+  outline.forEach((idx,i)=>{
+    const p=lm[idx]; if(!p)return;
+    i===0?ctx.moveTo(p.x*W,p.y*H):ctx.lineTo(p.x*W,p.y*H);
+  });
+  ctx.closePath(); ctx.stroke();
+  ctx.globalAlpha=0.9; ctx.fillStyle=color;
+  [[468],[473]].forEach(([s])=>{
+    const ic=irisCenter(lm,s);
+    ctx.beginPath(); ctx.arc(ic.x*W,ic.y*H,3,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+
+const faceMesh = new FaceMesh({
+  locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+});
+faceMesh.setOptions({
+  maxNumFaces:1, refineLandmarks:true,
+  minDetectionConfidence:0.55, minTrackingConfidence:0.55
+});
+
+faceMesh.onResults(results => {
+  overlay.width  = video.videoWidth  || video.offsetWidth;
+  overlay.height = video.videoHeight || video.offsetHeight;
+
+  if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+    document.getElementById('faceBadge').className='status-badge none';
+    document.getElementById('faceBadge').textContent='❌ No Face';
+    setMetric('mYaw','—','danger'); setMetric('mEyeVis','—','danger'); setMetric('mIris','—','danger');
+    smoothFaceThreat = smoothFaceThreat*0.7 + 50*0.3;
+    setBar('faceBar','facePct',smoothFaceThreat,'face');
+    drawOverlay(null,'none'); updateCombined();
+    consecutiveFace++;
+    if(consecutiveFace>30) showAlert('FACE NOT VISIBLE','face');
+    return;
+  }
+
+  const lm = results.multiFaceLandmarks[0];
+  const leftEye=lm[33], rightEye=lm[263], nose=lm[1];
+  const yaw = nose.x - (leftEye.x+rightEye.x)/2;
+
+  const leftOpen  = eyeOpenness(lm,[159,160,161,144,145,153]);
+  const rightOpen = eyeOpenness(lm,[386,387,388,373,374,380]);
+  const eyeRatio  = Math.max(leftOpen,rightOpen)>0.001 ? Math.min(leftOpen,rightOpen)/Math.max(leftOpen,rightOpen) : 1;
+
+  const li=irisCenter(lm,468), ri=irisCenter(lm,473);
+  const leftEyeW = dist2D(lm[133],lm[33]);
+  const rightEyeW= dist2D(lm[362],lm[263]);
+  const liPos = leftEyeW>0.001  ? (li.x-lm[33].x)/leftEyeW  : 0.5;
+  const riPos = rightEyeW>0.001 ? (ri.x-lm[362].x)/rightEyeW: 0.5;
+  const irisAsym = Math.abs(liPos-riPos);
+
+  const faceW = dist2D(lm[234],lm[454]);
+  const faceH = dist2D(lm[10], lm[152]);
+  const faceScore = faceH>0.001 ? faceW/faceH : 1;
+
+  const yawAbs    = Math.abs(yaw);
+  const yawS      = Math.min(1, yawAbs/0.15);
+  const eyeS      = Math.max(0,(0.6-eyeRatio)/0.6);
+  const irisS     = Math.min(1, irisAsym/0.35);
+  const faceNarrow= Math.max(0,(0.55-faceScore)/0.55);
+  const rawFace   = yawS*40 + eyeS*25 + irisS*20 + faceNarrow*15;
+
+  smoothFaceThreat = smoothFaceThreat*0.7 + rawFace*0.3;
+  setBar('faceBar','facePct',smoothFaceThreat,'face');
+
+  let state, badgeClass, badgeText;
+  if (smoothFaceThreat >= 55) {
+    state='danger'; badgeClass='danger'; badgeText='⚠️ SIDE VIEW';
+    consecutiveFace++;
+    if(consecutiveFace===5){ warnCount++; document.getElementById('sWarn').textContent=warnCount; logEvent('⚠ Side-view detected','warn'); }
+    if(consecutiveFace>=20){ showAlert(`SIDE VIEW — yaw:${yaw.toFixed(2)} eye:${(eyeRatio*100).toFixed(0)}%`,'face'); consecutiveFace=0; }
+  } else if (smoothFaceThreat >= 25) {
+    state='warn'; badgeClass='warn'; badgeText='👁 SUSPICIOUS';
+    consecutiveFace=Math.max(0,consecutiveFace-1);
+  } else {
+    state='ok'; badgeClass='ok'; badgeText='✅ Forward';
+    consecutiveFace=Math.max(0,consecutiveFace-2);
+  }
+
+  document.getElementById('faceBadge').className='status-badge '+badgeClass;
+  document.getElementById('faceBadge').textContent=badgeText;
+
+  setMetric('mYaw',   yaw.toFixed(3),                yawAbs<0.08?'ok':yawAbs<0.13?'warn':'danger');
+  setMetric('mEyeVis',Math.round(eyeRatio*100)+'%',  eyeRatio>0.6?'ok':eyeRatio>0.4?'warn':'danger');
+  setMetric('mIris',  irisAsym.toFixed(3),            irisAsym<0.12?'ok':irisAsym<0.25?'warn':'danger');
+
+  drawOverlay(lm, state);
+  updateCombined();
+});
+
+const camera = new Camera(video, {
+  onFrame: async () => { await faceMesh.send({ image: video }); },
+  width: 640, height: 480
+});
+camera.start().then(() => {
+  logEvent('✓ Camera initialized');
+  initAudio();
+});
+</script>
+</body>
+</html>

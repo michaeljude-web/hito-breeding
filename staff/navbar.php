@@ -285,7 +285,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fa-solid fa-egg"></i> Hatchery
             </a>
             <a href="sales.php" class="nav-link <?= $current_page === 'sales.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-boxes-stacked"></i> Sales & Inventory
+                <i class="fa-solid fa-boxes-stacked"></i>Inventory
             </a>
             <a href="analytics.php" class="nav-link <?= $current_page === 'analytics.php' ? 'active' : '' ?>">
                 <i class="fa-solid fa-chart-line"></i> Analytics

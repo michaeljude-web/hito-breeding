@@ -36,28 +36,24 @@ CREATE TABLE feed_consumption (
 );
 
 ------
--- Hatchery Records (breeding sessions)
+
+
 CREATE TABLE hatchery_records (
     id              INT AUTO_INCREMENT PRIMARY KEY,
-    record_date     DATE           NOT NULL,
-    female_count    INT            NOT NULL,
-    eggs_produced   INT            NOT NULL,
-    eggs_hatched    INT            NOT NULL,
-    survival_rate   DECIMAL(5,2)   GENERATED ALWAYS AS (
-                        ROUND((eggs_hatched / eggs_produced) * 100, 2)
-                    ) STORED,
-    logged_by       INT            NOT NULL,
+    female_count    INT          NOT NULL,
+    estimated_fry   INT          NOT NULL,
+    record_date     DATE         NOT NULL,
+    logged_by       INT          NOT NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Fingerling Transfers
 CREATE TABLE fingerling_transfers (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
-    transfer_date       DATE        NOT NULL,
-    hatchery_id         INT         NOT NULL,
+    hatchery_id         INT          NOT NULL,
+    transfer_date       DATE         NOT NULL,
     pond_destination    VARCHAR(100) NOT NULL,
-    quantity            INT         NOT NULL,
-    logged_by           INT         NOT NULL,
+    quantity            INT          NOT NULL,
+    logged_by           INT          NOT NULL,
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (hatchery_id) REFERENCES hatchery_records(id) ON DELETE CASCADE
 );
