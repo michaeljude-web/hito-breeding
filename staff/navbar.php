@@ -1,5 +1,11 @@
 <?php
+session_start();
+if (!isset($_SESSION['staff_id'])) {
+    header('Location: login.php');
+    exit;
+}
 $current_page = basename($_SERVER['PHP_SELF']);
+$staff_name = $_SESSION['staff_name'] ?? 'Staff';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -14,13 +20,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
         :root {
             --navy: #1a1a2e;
             --navy-light: #22223d;
-            --white: #ffffff;
             --off-white: #f5f5f7;
-            --gray-100: #f0f0f2;
-            --gray-200: #e2e2e6;
             --gray-400: #9999aa;
             --black: #111111;
-            --error: #b91c1c;
         }
 
         body {
@@ -32,178 +34,131 @@ $current_page = basename($_SERVER['PHP_SELF']);
             flex-direction: column;
         }
 
-        /* ── NAVBAR ── */
         .navbar {
             background: var(--navy);
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 2px 16px rgba(0,0,0,0.18);
         }
 
         .navbar-inner {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 24px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
             align-items: center;
-            height: 58px;
-            gap: 0;
+            height: 56px;
         }
 
-        /* Brand */
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            margin-right: 32px;
-            flex-shrink: 0;
-        }
-
-        .brand-icon {
-            width: 32px;
-            height: 32px;
-            background: rgba(255,255,255,0.12);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 15px;
-            color: #fff;
-        }
-
-        .brand-text {
-            line-height: 1.1;
-        }
-
-        .brand-text h1 {
-            font-size: 14px;
-            font-weight: 700;
-            color: #fff;
-            letter-spacing: 0.02em;
-        }
-
-        .brand-text span {
-            font-size: 9px;
-            color: rgba(255,255,255,0.3);
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        /* Nav links */
         .nav-links {
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 2px;
-            flex: 1;
+            grid-column: 2;
         }
 
         .nav-link {
             display: flex;
             align-items: center;
             gap: 7px;
-            padding: 8px 14px;
+            padding: 7px 16px;
             font-size: 12px;
             font-weight: 500;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.45);
             text-decoration: none;
-            border-radius: 4px;
-            transition: background 0.15s, color 0.15s;
+            transition: color 0.15s;
             white-space: nowrap;
-            letter-spacing: 0.01em;
+            letter-spacing: 0.02em;
+            position: relative;
         }
 
-        .nav-link i {
-            font-size: 12px;
+        .nav-link i { font-size: 11px; }
+
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 16px;
+            right: 16px;
+            height: 2px;
+            background: #fff;
+            transform: scaleX(0);
+            transition: transform 0.2s;
         }
 
-        .nav-link:hover {
-            background: rgba(255,255,255,0.08);
-            color: rgba(255,255,255,0.9);
-        }
+        .nav-link:hover { color: rgba(255,255,255,0.85); }
+        .nav-link:hover::after { transform: scaleX(0.4); }
 
         .nav-link.active {
-            background: rgba(255,255,255,0.13);
             color: #fff;
             font-weight: 600;
         }
 
-        /* Right side */
+        .nav-link.active::after { transform: scaleX(1); }
+
         .nav-right {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-left: auto;
-            flex-shrink: 0;
-        }
-
-        .staff-chip {
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            justify-content: flex-end;
+            gap: 10px;
+            grid-column: 3;
         }
 
         .staff-avatar {
-            width: 30px;
-            height: 30px;
-            background: rgba(255,255,255,0.12);
+            width: 28px;
+            height: 28px;
+            background: rgba(255,255,255,0.1);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
-            color: #fff;
+            font-size: 11px;
+            color: rgba(255,255,255,0.7);
         }
 
         .staff-name-label {
             font-size: 12px;
             font-weight: 500;
-            color: rgba(255,255,255,0.7);
+            color: rgba(255,255,255,0.55);
         }
 
-        .nav-divider {
-            width: 1px;
-            height: 20px;
-            background: rgba(255,255,255,0.1);
-        }
+        .nav-divider { width: 1px; height: 18px; background: rgba(255,255,255,0.08); }
 
         .logout-link {
             display: flex;
             align-items: center;
             gap: 6px;
-            font-size: 12px;
-            color: rgba(255,255,255,0.4);
+            font-size: 11px;
+            color: rgba(255,255,255,0.3);
             text-decoration: none;
-            padding: 6px 10px;
-            border-radius: 4px;
-            transition: color 0.15s, background 0.15s;
+            padding: 5px 8px;
+            transition: color 0.15s;
+            letter-spacing: 0.04em;
         }
 
-        .logout-link:hover {
-            color: rgba(255,255,255,0.9);
-            background: rgba(255,255,255,0.07);
-        }
+        .logout-link:hover { color: rgba(255,255,255,0.8); }
 
-        /* Mobile hamburger */
         .hamburger {
             display: none;
             background: none;
             border: none;
-            color: rgba(255,255,255,0.7);
-            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            font-size: 17px;
             cursor: pointer;
-            padding: 4px 8px;
-            margin-left: auto;
+            padding: 4px;
+            grid-column: 3;
+            justify-self: end;
         }
 
-        /* Mobile drawer */
         .mobile-menu {
             display: none;
             flex-direction: column;
             background: var(--navy-light);
-            border-top: 1px solid rgba(255,255,255,0.06);
-            padding: 8px 16px 16px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            padding: 8px 16px 14px;
             gap: 2px;
         }
 
@@ -214,18 +169,26 @@ $current_page = basename($_SERVER['PHP_SELF']);
             border-radius: 4px;
         }
 
+        .mobile-menu .nav-link::after { display: none; }
+        .mobile-menu .nav-link.active { background: rgba(255,255,255,0.1); }
+
         .mobile-user {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 12px 8px;
-            font-size: 12px;
-            color: rgba(255,255,255,0.4);
+            gap: 8px;
+            padding: 10px 12px 4px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.3);
             border-top: 1px solid rgba(255,255,255,0.06);
             margin-top: 6px;
         }
 
-        /* ── PAGE WRAP ── */
+        .mobile-user a {
+            color: rgba(255,255,255,0.3);
+            text-decoration: none;
+            margin-left: auto;
+        }
+
         .page-wrap {
             flex: 1;
             max-width: 1200px;
@@ -234,45 +197,24 @@ $current_page = basename($_SERVER['PHP_SELF']);
             padding: 32px 24px;
         }
 
-        /* ── PAGE HEADER ── */
-        .page-header {
-            margin-bottom: 24px;
-        }
+        .page-header { margin-bottom: 24px; }
+        .page-header h2 { font-size: 20px; font-weight: 700; color: var(--black); letter-spacing: -0.01em; }
+        .page-header p { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
 
-        .page-header h2 {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--black);
-            letter-spacing: -0.01em;
-        }
-
-        .page-header p {
-            font-size: 12px;
-            color: var(--gray-400);
-            margin-top: 3px;
-        }
-
-        /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
+            .navbar-inner { grid-template-columns: 1fr auto; }
             .nav-links { display: none; }
             .nav-right { display: none; }
-            .hamburger { display: flex; margin-left: auto; }
+            .hamburger { display: flex; }
             .page-wrap { padding: 20px 16px; }
         }
     </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
 <nav class="navbar">
     <div class="navbar-inner">
-        <a href="dashboard.php" class="nav-brand">
-            <!-- <div class="brand-icon"><i class="fa-solid fa-fish"></i></div> -->
-            <div class="brand-text">
-                <!-- <h1>Hito System</h1>
-                <span>Staff Portal</span> -->
-            </div>
-        </a>
+        <div></div>
 
         <div class="nav-links">
             <a href="dashboard.php" class="nav-link <?= $current_page === 'dashboard.php' ? 'active' : '' ?>">
@@ -281,71 +223,59 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <a href="feeding.php" class="nav-link <?= $current_page === 'feeding.php' ? 'active' : '' ?>">
                 <i class="fa-solid fa-bowl-food"></i> Feeding
             </a>
-            <a href="hatchery.php" class="nav-link <?= $current_page === 'hatchery.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-egg"></i> Hatchery
-            </a>
-            <a href="sales.php" class="nav-link <?= $current_page === 'sales.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-boxes-stacked"></i>Inventory
+            <a href="order.php" class="nav-link <?= $current_page === 'order.php' ? 'active' : '' ?>">
+                <i class="fa-solid fa-boxes-stacked"></i> Order
             </a>
             <a href="analytics.php" class="nav-link <?= $current_page === 'analytics.php' ? 'active' : '' ?>">
                 <i class="fa-solid fa-chart-line"></i> Analytics
             </a>
-            <a href="costs.php" class="nav-link <?= $current_page === 'costs.php' ? 'active' : '' ?>">
-                <i class="fa-solid fa-coins"></i> Cost Tracking
-            </a>
         </div>
 
         <div class="nav-right">
-            <div class="staff-chip">
-                <div class="staff-avatar"><i class="fa-solid fa-user"></i></div>
-                <span class="staff-name-label">Staff</span>
-            </div>
+            <div class="staff-avatar"><i class="fa-solid fa-user"></i></div>
+            <span class="staff-name-label"><?= htmlspecialchars($staff_name) ?></span>
             <div class="nav-divider"></div>
-            <a href="login.php" class="logout-link" title="Sign out">
+            <a href="logout.php" class="logout-link">
                 <i class="fa-solid fa-right-from-bracket"></i> Logout
             </a>
         </div>
 
-        <button class="hamburger" onclick="toggleMobile()" aria-label="Menu">
+        <button class="hamburger" onclick="toggleMobile()">
             <i class="fa-solid fa-bars" id="ham-icon"></i>
         </button>
     </div>
 
-    <!-- Mobile menu -->
     <div class="mobile-menu" id="mobile-menu">
         <a href="dashboard.php" class="nav-link <?= $current_page === 'dashboard.php' ? 'active' : '' ?>">
             <i class="fa-solid fa-gauge-high"></i> Dashboard
         </a>
         <a href="feeding.php" class="nav-link <?= $current_page === 'feeding.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-bowl-food"></i> Feeding & Monitoring
+            <i class="fa-solid fa-bowl-food"></i> Feeding
         </a>
-        <a href="hatchery.php" class="nav-link <?= $current_page === 'hatchery.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-egg"></i> Hatchery & Fingerling
-        </a>
-        <a href="sales.php" class="nav-link <?= $current_page === 'sales.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-boxes-stacked"></i> Sales & Inventory
+        <a href="order.php" class="nav-link <?= $current_page === 'order.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-boxes-stacked"></i> Order
         </a>
         <a href="analytics.php" class="nav-link <?= $current_page === 'analytics.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-chart-line"></i> Analytics & Reports
-        </a>
-        <a href="costs.php" class="nav-link <?= $current_page === 'costs.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-coins"></i> Cost Tracking
+            <i class="fa-solid fa-chart-line"></i> Analytics
         </a>
         <div class="mobile-user">
-            <i class="fa-solid fa-user"></i> Staff &nbsp;·&nbsp;
-            <a href="login.php" style="color:rgba(255,255,255,0.4);text-decoration:none;">
-                <i class="fa-solid fa-right-from-bracket"></i> Logout
-            </a>
+            <i class="fa-solid fa-user"></i> <?= htmlspecialchars($staff_name) ?>
+            <a href="logout.php"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
         </div>
     </div>
 </nav>
 
-<!-- PAGE CONTENT WRAP -->
 <div class="page-wrap">
-    <!-- PAGE HEADER (set $page_title and $page_sub before including navbar.php) -->
     <div class="page-header">
         <h2><?= $page_title ?? 'Dashboard' ?></h2>
         <p><?= $page_sub ?? '' ?></p>
     </div>
 
-    <!-- CONTENT STARTS HERE -->
+<script>
+function toggleMobile() {
+    const menu = document.getElementById('mobile-menu');
+    const icon = document.getElementById('ham-icon');
+    menu.classList.toggle('open');
+    icon.className = menu.classList.contains('open') ? 'fa-solid fa-xmark' : 'fa-solid fa-bars';
+}
+</script>

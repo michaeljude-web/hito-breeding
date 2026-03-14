@@ -6,7 +6,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hito System</title>
+    <title>Hito</title>
     <link rel="stylesheet" href="../assets/fontawesome-7/css/all.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -283,9 +283,9 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <div class="sidebar-brand">
         <div class="logo-row">
-            <div class="brand-icon"><i class="fa-solid fa-fish"></i></div>
+            <div class="brand-icon"><i class="fa-solid fa-user"></i></div>
             <div class="brand-text">
-                <h1>Hito System</h1>
+                <h1>ADMINISTRATOR</h1>
                 <span>Admin Panel</span>
             </div>
         </div>
@@ -300,18 +300,19 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <div class="sidebar-section">
         <div class="section-label">Management</div>
-        <a href="feeding.php" class="nav-item <?= $current_page === 'feeding.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-bowl-food"></i> Feeding & Monitoring
+        <a href="inventory.php" class="nav-item <?= $current_page === 'feeding.php' ? 'active' : '' ?>">
+            <i class="fa-solid fa-bowl-food"></i> Feed Monitoring
         </a>
-        <a href="hatchery.php" class="nav-item <?= $current_page === 'hatchery.php' ? 'active' : '' ?>">
-            <i class="fa-solid fa-egg"></i> Hatchery & Fingerling
-        </a>
+
         <a href="sales.php" class="nav-item <?= $current_page === 'sales.php' ? 'active' : '' ?>">
             <i class="fa-solid fa-boxes-stacked"></i> Sales & Inventory
         </a>
         <a href="costs.php" class="nav-item <?= $current_page === 'costs.php' ? 'active' : '' ?>">
             <i class="fa-solid fa-coins"></i> Cost Tracking
         </a>
+        <a href="activity_logs.php" class="nav-item <?= $current_page === 'activity_logs.php' ? 'active' : '' ?>">
+        <i class="fa-solid fa-clock-rotate-left"></i> Activity Logs
+    </a>
     </div>
 
     <div class="sidebar-section">
@@ -326,6 +327,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <a href="staff.php" class="nav-item <?= $current_page === 'staff.php' ? 'active' : '' ?>">
             <i class="fa-solid fa-users"></i> Staff Management
         </a>
+        
     </div>
 
     <div class="sidebar-footer">

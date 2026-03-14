@@ -1,4 +1,6 @@
 <?php
+session_start();
+
 require_once '../db/connection.php';
 
 $error = '';
@@ -13,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $staff = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($staff) {
+            $_SESSION['staff_id']   = $staff['id'];
+            $_SESSION['staff_name'] = $staff['firstname'] . ' ' . $staff['lastname'];
             header('Location: dashboard.php');
             exit;
         } else {
@@ -28,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hito System — Staff Login</title>
+    <title>Staff Login</title>
     <link rel="stylesheet" href="../assets/fontawesome-7/css/all.min.css">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -66,7 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* LEFT */
         .left {
             width: 220px;
             flex-shrink: 0;
@@ -134,7 +137,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             letter-spacing: 0.06em;
         }
 
-        /* RIGHT */
         .right {
             flex: 1;
             display: flex;
@@ -247,21 +249,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .btn:hover { opacity: 0.85; }
         .btn:active { transform: scale(0.99); }
 
-        .switch-link {
-            margin-top: 24px;
-            font-size: 11px;
-            color: var(--mid);
-            text-align: center;
-        }
-
-        .switch-link a {
-            color: var(--black);
-            font-weight: 600;
-            text-decoration: none;
-        }
-
-        .switch-link a:hover { text-decoration: underline; }
-
         @media (max-width: 580px) {
             .wrapper { flex-direction: column; width: 100%; min-height: 100vh; box-shadow: none; }
             .left { width: 100%; min-height: 130px; justify-content: flex-end; padding: 24px; }
@@ -272,11 +259,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
 
 <div class="wrapper">
-
     <div class="left">
         <div class="left-top">
             <div class="fish-icon"><i class="fa-solid fa-fish"></i></div>
-            <h2>Hito System</h2>
+            <h2>LRS Hito Farm</h2>
             <p>Staff Portal</p>
         </div>
         <div class="left-bottom">&copy; <?= date('Y') ?> Hito System</div>
@@ -284,7 +270,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="right">
         <div class="form-wrap">
-
             <div class="eyebrow"><span></span> Staff Access</div>
             <h1>Sign In</h1>
 
@@ -321,10 +306,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fa-solid fa-right-to-bracket"></i> &nbsp;Sign In
                 </button>
             </form>
-
         </div>
     </div>
-
 </div>
 
 </body>
