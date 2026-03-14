@@ -10,13 +10,14 @@ $error   = '';
 $staff_id = $_SESSION['staff_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_order') {
-    $customer    = trim($_POST['customer_name'] ?? '') ?: null;
-    $quantity_kg = (float)($_POST['quantity_kg'] ?? 0);
+    $customer     = trim($_POST['customer_name'] ?? '') ?: null;
+    $hito_type    = trim($_POST['hito_type'] ?? 'Native Catfish');
+    $quantity_kg  = (float)($_POST['quantity_kg'] ?? 0);
     $price_per_kg = (float)($_POST['price_per_kg'] ?? 0);
 
     if ($quantity_kg > 0 && $price_per_kg > 0) {
-        $pdo->prepare("INSERT INTO orders (customer_name, quantity_kg, price_per_kg, order_date, logged_by) VALUES (?,?,?,CURDATE(),?)")
-            ->execute([$customer, $quantity_kg, $price_per_kg, $staff_id]);
+        $pdo->prepare("INSERT INTO orders (customer_name, hito_type, quantity_kg, price_per_kg, order_date, logged_by) VALUES (?,?,?,?,CURDATE(),?)")
+            ->execute([$customer, $hito_type, $quantity_kg, $price_per_kg, $staff_id]);
         $success = 'Order recorded successfully.';
     } else {
         $error = 'Please fill in all required fields.';
@@ -91,7 +92,9 @@ $summary = $pdo->query("
     .form-group input { border:1px solid #e2e2e6; outline:none; font-family:inherit; font-size:13px; color:#111; padding:6px 10px; background:#fafafa; transition:border-color .2s; border-radius:0; }
     .form-group input:focus { border-color:#1a1a2e; background:#fff; }
     .form-group input::placeholder { color:#ccc; }
-    .form-group .hint { font-size:10px; color:#bbb; }
+    .type-badge { display:inline-block; background:#f0f0f2; color:#444; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
+    .form-group select { border:1px solid #e2e2e6; outline:none; font-family:inherit; font-size:13px; color:#111; padding:6px 10px; background:#fafafa; transition:border-color .2s; border-radius:0; appearance:none; cursor:pointer; }
+    .form-group select:focus { border-color:#1a1a2e; background:#fff; }
     .total-preview { grid-column:1/-1; background:#f9f9fb; border:1px solid #e2e2e6; padding:10px 14px; font-size:12px; color:#555; display:flex; align-items:center; justify-content:space-between; }
     .total-preview strong { color:#111; font-size:15px; }
     .optional-tag { font-size:9px; color:#bbb; font-weight:400; text-transform:none; letter-spacing:0; margin-left:4px; }
@@ -120,10 +123,7 @@ $summary = $pdo->query("
         <div class="sc-val"><?= number_format($summary['total_kg'], 1) ?><small> kg</small></div>
         <div class="sc-label">Total Sold</div>
     </div>
-    <div class="summary-card">
-        <div class="sc-val">₱<?= number_format($summary['total_revenue'], 2) ?></div>
-        <div class="sc-label">Total Revenue</div>
-    </div>
+
 </div>
 
 <div class="toolbar">
@@ -145,6 +145,7 @@ $summary = $pdo->query("
                 <tr>
                     <th>Date</th>
                     <th>Customer</th>
+                    <th>Type</th>
                     <th>Quantity</th>
                     <th>Price / kg</th>
                     <th>Total</th>
@@ -158,9 +159,10 @@ $summary = $pdo->query("
                         <?php if ($o['customer_name']): ?>
                             <span class="customer-cell"><?= htmlspecialchars($o['customer_name']) ?></span>
                         <?php else: ?>
-                            <span class="no-customer">— walk-in —</span>
+                            <span class="no-customer">N/A</span>
                         <?php endif; ?>
                     </td>
+                    <td><span class="type-badge"><?= htmlspecialchars($o['hito_type']) ?></span></td>
                     <td class="val-bold"><?= number_format($o['quantity_kg'], 2) ?> kg</td>
                     <td>₱<?= number_format($o['price_per_kg'], 2) ?></td>
                     <td class="revenue">₱<?= number_format($o['total_price'], 2) ?></td>
@@ -176,9 +178,9 @@ $summary = $pdo->query("
         <div class="modal-header">
             <div>
                 <h3>Add Order</h3>
-            
+                <p>Today's date will be recorded automatically.</p>
             </div>
-
+            <button class="modal-close" onclick="closeModal('modal-order')"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <form method="POST">
             <input type="hidden" name="action" value="add_order">
@@ -186,7 +188,15 @@ $summary = $pdo->query("
                 <div class="form-grid">
                     <div class="form-group full">
                         <label>Customer Name <span class="optional-tag">(optional)</span></label>
-                        <input type="text" name="customer_name" placeholder="">
+                        <input type="text" name="customer_name" placeholder="e.g. Juan dela Cruz">
+                    </div>
+                    <div class="form-group full">
+                        <label>Hito Type</label>
+                        <select name="hito_type" required>
+                            <option value="Native Catfish">Native Catfish</option>
+                            <option value="Taiwan Catfish">Taiwan Catfish</option>
+                            <option value="African Catfish">African Catfish</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Quantity</label>

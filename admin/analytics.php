@@ -40,6 +40,18 @@ $top_staff = $pdo->query("
     ORDER BY (feed_count + order_count) DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+$best_selling = $pdo->query("
+    SELECT
+        hito_type,
+        COUNT(*) AS order_count,
+        SUM(quantity_kg) AS total_kg,
+        SUM(total_price) AS total_revenue
+    FROM orders
+    WHERE order_date BETWEEN $from AND $to
+    GROUP BY hito_type
+    ORDER BY total_kg DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
 $totals = $pdo->query("
     SELECT
         (SELECT COALESCE(SUM(total_price),0) FROM orders WHERE order_date BETWEEN $from AND $to) AS total_revenue,
@@ -98,6 +110,7 @@ $totals = $pdo->query("
     .bar-wrap { display:flex; align-items:center; gap:8px; }
     .mini-bar { flex:1; height:5px; background:#f0f0f2; border-radius:3px; overflow:hidden; }
     .mini-bar-fill { height:100%; background:#1a1a2e; border-radius:3px; }
+    .bar-label { font-size:10px; color:#aaa; white-space:nowrap; }
     .empty-row td { text-align:center; color:#ccc; padding:28px; font-size:12px; }
 
     /* ── PRINT ── */
@@ -108,6 +121,7 @@ $totals = $pdo->query("
         * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
 
         .sidebar, .sidebar-overlay, nav, .toolbar, .no-print,
+        .page-header,
         .ov-icon, .mini-bar, .bar-wrap, .badge-sm, .staff-init-sm, .rank-num { display:none !important; }
 
         body { background:#fff !important; font-family:'Segoe UI',Tahoma,sans-serif !important; color:#111 !important; }
@@ -322,6 +336,49 @@ $totals = $pdo->query("
                     <td><?= $s['feed_count'] ?></td>
                     <td><?= $s['order_count'] ?></td>
                     <td class="navy"><?= $total ?></td>
+                </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ROW 3: Best Selling -->
+<div class="analytics-grid full" style="grid-template-columns:1fr;">
+    <div class="section-card">
+        <div class="sc-head">
+            <h3><i class="fa-solid fa-fish" style="margin-right:6px;color:#ccc"></i>Best Selling Hito</h3>
+            <span><?= date('M d', strtotime($date_from)) ?> – <?= date('M d', strtotime($date_to)) ?></span>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Hito Type</th>
+                    <th>Orders</th>
+                    <th>Total Sold (kg)</th>
+                    <th>Revenue</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php if (empty($best_selling)): ?>
+                <tr class="empty-row"><td colspan="6">No orders for this period.</td></tr>
+            <?php else:
+                $max_kg = max(array_column($best_selling, 'total_kg')) ?: 1;
+                foreach ($best_selling as $i => $b): ?>
+                <tr>
+                    <td><span class="rank-num <?= $i === 0 ? 'gold' : '' ?>"><?= $i + 1 ?></span></td>
+                    <td class="val-bold"><?= htmlspecialchars($b['hito_type']) ?></td>
+                    <td><span class="badge-sm"><i class="fa-solid fa-cart-shopping"></i> <?= $b['order_count'] ?></span></td>
+                    <td class="val-bold"><?= number_format($b['total_kg'], 2) ?> kg</td>
+                    <td class="green">₱<?= number_format($b['total_revenue'], 2) ?></td>
+                    <td style="width:140px;">
+                        <div class="bar-wrap">
+                            <div class="mini-bar"><div class="mini-bar-fill" style="width:<?= round(($b['total_kg'] / $max_kg) * 100) ?>%"></div></div>
+                            <span class="bar-label"><?= round(($b['total_kg'] / $max_kg) * 100) ?>%</span>
+                        </div>
+                    </td>
                 </tr>
             <?php endforeach; endif; ?>
             </tbody>

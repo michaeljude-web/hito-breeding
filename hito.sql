@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Mar 13, 2026 at 04:14 PM
+-- Generation Time: Mar 14, 2026 at 03:49 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.1.25
 
@@ -95,6 +95,7 @@ INSERT INTO `feed_usage` (`id`, `used_kg`, `pond`, `usage_date`, `logged_by`, `c
 CREATE TABLE `orders` (
   `id` int(11) NOT NULL,
   `customer_name` varchar(100) DEFAULT NULL,
+  `hito_type` varchar(100) NOT NULL DEFAULT 'Native Catfish',
   `quantity_kg` decimal(10,2) NOT NULL,
   `price_per_kg` decimal(10,2) NOT NULL,
   `total_price` decimal(10,2) GENERATED ALWAYS AS (`quantity_kg` * `price_per_kg`) STORED,
@@ -107,8 +108,13 @@ CREATE TABLE `orders` (
 -- Dumping data for table `orders`
 --
 
-INSERT INTO `orders` (`id`, `customer_name`, `quantity_kg`, `price_per_kg`, `order_date`, `logged_by`, `created_at`) VALUES
-(1, 'Maria Clara', 2.00, 50.00, '2026-03-13', 2, '2026-03-13 15:02:49');
+INSERT INTO `orders` (`id`, `customer_name`, `hito_type`, `quantity_kg`, `price_per_kg`, `order_date`, `logged_by`, `created_at`) VALUES
+(1, 'Maria Clara', 'Native Catfish', 2.00, 50.00, '2026-03-13', 2, '2026-03-13 15:02:49'),
+(2, NULL, 'Native Catfish', 20.00, 500.00, '2026-03-14', 3, '2026-03-14 02:14:44'),
+(3, NULL, 'Native Catfish', 2.00, 20.00, '2026-03-14', 3, '2026-03-14 02:15:14'),
+(4, NULL, 'Taiwan Catfish', 3.00, 100.00, '2026-03-14', 3, '2026-03-14 02:17:47'),
+(5, NULL, 'Taiwan Catfish', 6.00, 600.00, '2026-03-14', 1, '2026-03-14 02:20:05'),
+(6, 'Juan Luna', 'African Catfish', 5.00, 40.00, '2026-03-14', 1, '2026-03-14 02:21:21');
 
 -- --------------------------------------------------------
 
@@ -198,7 +204,7 @@ ALTER TABLE `feed_usage`
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `staff`
