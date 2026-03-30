@@ -75,6 +75,8 @@ $summary = $pdo->query("
     .empty-state i { font-size:32px; margin-bottom:10px; display:block; }
     .empty-state p { font-size:13px; }
 
+    input {
+        width: 150px;    }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:24px; }
     .modal-overlay.show { display:flex; }
     .modal { background:#fff; width:100%; max-width:420px; animation:modalIn .22s ease both; }
@@ -95,8 +97,6 @@ $summary = $pdo->query("
     .type-badge { display:inline-block; background:#f0f0f2; color:#444; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; white-space:nowrap; }
     .form-group select { border:1px solid #e2e2e6; outline:none; font-family:inherit; font-size:13px; color:#111; padding:6px 10px; background:#fafafa; transition:border-color .2s; border-radius:0; appearance:none; cursor:pointer; }
     .form-group select:focus { border-color:#1a1a2e; background:#fff; }
-    .total-preview { grid-column:1/-1; background:#f9f9fb; border:1px solid #e2e2e6; padding:10px 14px; font-size:12px; color:#555; display:flex; align-items:center; justify-content:space-between; }
-    .total-preview strong { color:#111; font-size:15px; }
     .optional-tag { font-size:9px; color:#bbb; font-weight:400; text-transform:none; letter-spacing:0; margin-left:4px; }
     .modal-footer { padding:14px 22px; border-top:1px solid #f0f0f2; display:flex; justify-content:flex-end; gap:10px; }
     .btn-cancel { padding:9px 16px; background:#fff; border:1.5px solid #e2e2e6; font-family:inherit; font-size:12px; font-weight:600; color:#666; cursor:pointer; }
@@ -123,7 +123,6 @@ $summary = $pdo->query("
         <div class="sc-val"><?= number_format($summary['total_kg'], 1) ?><small> kg</small></div>
         <div class="sc-label">Total Sold</div>
     </div>
-
 </div>
 
 <div class="toolbar">
@@ -146,9 +145,10 @@ $summary = $pdo->query("
                     <th>Date</th>
                     <th>Customer</th>
                     <th>Type</th>
-                    <th>Quantity</th>
+                    <th>Quantity (kg)</th>
                     <th>Price / kg</th>
                     <th>Total</th>
+                    <th>Recorded By</th>
                 </tr>
             </thead>
             <tbody>
@@ -163,9 +163,10 @@ $summary = $pdo->query("
                         <?php endif; ?>
                     </td>
                     <td><span class="type-badge"><?= htmlspecialchars($o['hito_type']) ?></span></td>
-                    <td class="val-bold"><?= number_format($o['quantity_kg'], 2) ?> kg</td>
+                    <td class="val-bold"><?= number_format($o['quantity_kg'], 2) ?></td>
                     <td>₱<?= number_format($o['price_per_kg'], 2) ?></td>
                     <td class="revenue">₱<?= number_format($o['total_price'], 2) ?></td>
+                    <td style="color:#aaa; font-size:12px;"><?= htmlspecialchars($o['staff_name']) ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -178,7 +179,7 @@ $summary = $pdo->query("
         <div class="modal-header">
             <div>
                 <h3>Add Order</h3>
-                <p>Today's date will be recorded automatically.</p>
+                <!-- <p>Today's date will be recorded automatically.</p> -->
             </div>
             <button class="modal-close" onclick="closeModal('modal-order')"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -199,11 +200,11 @@ $summary = $pdo->query("
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Quantity</label>
-                        <input type="number" name="quantity_kg" id="o-qty" placeholder="0.00" step="0.01" min="0.01" required oninput="updateTotal()" style="max-width:120px;">
+                        <label>Quantity (kg)</label>
+                        <input type="number" name="quantity_kg" id="o-qty" placeholder="0.00" step="0.01" min="0.01" required oninput="updateTotal()">
                     </div>
                     <div class="form-group">
-                        <label>Price</label>
+                        <label>Price / kg</label>
                         <input type="number" name="price_per_kg" id="o-price" placeholder="0.00" step="0.01" min="0.01" required oninput="updateTotal()">
                     </div>
                 </div>
@@ -231,7 +232,6 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 function updateTotal() {
     const qty   = parseFloat(document.getElementById('o-qty').value) || 0;
     const price = parseFloat(document.getElementById('o-price').value) || 0;
-    document.getElementById('total-preview').textContent = '₱' + (qty * price).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 <?php if ($error): ?>openModal('modal-order');<?php endif; ?>
 </script>

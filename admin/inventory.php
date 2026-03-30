@@ -7,17 +7,20 @@ require_once 'sidebar.php';
 $success = '';
 $error   = '';
 
+// Delete stock record
 if (isset($_GET['delete_stock'])) {
     $pdo->prepare("DELETE FROM feed_inventory WHERE id = ?")->execute([(int)$_GET['delete_stock']]);
     header('Location: inventory.php?deleted=1'); exit;
 }
 if (isset($_GET['deleted'])) $success = 'Feed stock record deleted.';
 
+// Add stock
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_stock') {
     $quantity_kg  = (float)($_POST['quantity_kg'] ?? 0);
-    $price_per_kg = (float)($_POST['price_per_kg'] ?? 0);
+    $total_price  = (float)($_POST['total_price'] ?? 0);
+    $price_per_kg = ($quantity_kg > 0) ? $total_price / $quantity_kg : 0;
 
-    if ($quantity_kg > 0 && $price_per_kg > 0) {
+    if ($quantity_kg > 0 && $total_price > 0) {
         $pdo->prepare("INSERT INTO feed_inventory (quantity_kg, price_per_kg, date_added, added_by) VALUES (?,?,CURDATE(),0)")
             ->execute([$quantity_kg, $price_per_kg]);
         $success = 'Feed stock added successfully.';
@@ -26,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_s
     }
 }
 
+// Summary
 $summary = $pdo->query("
     SELECT
         COALESCE(SUM(quantity_kg), 0) AS total_in,
@@ -35,12 +39,22 @@ $summary = $pdo->query("
     FROM feed_inventory
 ")->fetch(PDO::FETCH_ASSOC);
 
+// Stock-in log
 $stock_log = $pdo->query("
     SELECT * FROM feed_inventory ORDER BY date_added DESC, created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// Usage log — now includes hito_size and hito_kg
 $usage_log = $pdo->query("
     SELECT * FROM feed_usage ORDER BY usage_date DESC, created_at DESC LIMIT 100
+")->fetchAll(PDO::FETCH_ASSOC);
+
+// Per-pond usage summary
+$pond_summary = $pdo->query("
+    SELECT pond, SUM(used_kg) AS total_used_kg
+    FROM feed_usage
+    GROUP BY pond
+    ORDER BY pond
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 $pct = ($summary['total_in'] > 0) ? min(100, round(($summary['remaining'] / $summary['total_in']) * 100)) : 0;
@@ -65,6 +79,7 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     .alert.success { background:#f0fdf4; color:#16a34a; border-color:#16a34a; }
     .alert.error   { background:#fef2f2; color:#b91c1c; border-color:#b91c1c; }
 
+    /* Overview */
     .overview-card { background:#fff; border:1px solid #e4e4e4; padding:24px; margin-bottom:24px; }
     .ov-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:0; }
     .ov-stat { text-align:center; padding:0 16px; border-right:1px solid #f0f0f0; }
@@ -80,6 +95,15 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     .ov-bar-fill.low { background:#ca8a04; }
     .ov-bar-fill.critical { background:#b91c1c; }
 
+    /* Pond Cards */
+    .pond-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+    @media(max-width:700px){ .pond-grid { grid-template-columns:1fr 1fr; } }
+    .pond-card { background:#fff; border:1px solid #e4e4e4; padding:16px 18px; }
+    .pond-card-title { font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#bbb; margin-bottom:8px; }
+    .pond-card-val { font-size:20px; font-weight:700; color:#111; }
+    .pond-card-val small { font-size:12px; font-weight:400; color:#aaa; }
+
+    /* Tables */
     .table-wrap { background:#fff; border:1px solid #e4e4e4; overflow-x:auto; }
     table { width:100%; border-collapse:collapse; font-size:13px; }
     thead tr { border-bottom:1px solid #e4e4e4; background:#f9f9f9; }
@@ -89,6 +113,10 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     tbody tr:hover { background:#fafafa; }
     td { padding:12px 16px; color:#444; vertical-align:middle; }
     .val-bold { font-weight:700; color:#111; }
+
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; border-radius:2px; }
+    .badge-small { background:#eff6ff; color:#1d4ed8; }
+    .badge-large { background:#fef3c7; color:#92400e; }
     .pond-badge { display:inline-block; font-size:10px; font-weight:600; background:#f0f0f0; color:#555; padding:3px 8px; border-radius:2px; }
 
     .empty-state { text-align:center; padding:50px 20px; color:#ccc; background:#fff; border:1px solid #e4e4e4; }
@@ -98,6 +126,9 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     .btn-icon-sm { width:26px; height:26px; display:flex; align-items:center; justify-content:center; border:1px solid #e4e4e4; background:#fff; cursor:pointer; font-size:11px; color:#888; transition:background .15s,color .15s; }
     .btn-icon-sm.danger:hover { background:#b91c1c; color:#fff; border-color:#b91c1c; }
 
+    /* Modal */
+    input {
+        width: 150px;    }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; padding:24px; }
     .modal-overlay.show { display:flex; }
     .modal { background:#fff; width:100%; max-width:400px; animation:modalIn .22s ease both; }
@@ -115,7 +146,6 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     .form-group input { border:1px solid #e4e4e4; outline:none; font-family:inherit; font-size:13px; color:#111; padding:9px 11px; background:#fafafa; transition:border-color .2s; border-radius:0; }
     .form-group input:focus { border-color:#111; background:#fff; }
     .form-group input::placeholder { color:#ccc; }
-    .total-preview { grid-column:1/-1; background:#f9f9f9; border:1px solid #e4e4e4; padding:10px 14px; font-size:12px; color:#555; display:flex; align-items:center; justify-content:space-between; }
     .total-preview strong { color:#111; font-size:14px; }
     .modal-footer { padding:14px 22px; border-top:1px solid #f0f0f0; display:flex; justify-content:flex-end; gap:10px; }
     .btn-cancel { padding:9px 16px; background:#fff; border:1.5px solid #e4e4e4; font-family:inherit; font-size:12px; font-weight:600; color:#666; cursor:pointer; }
@@ -131,6 +161,7 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     <div class="alert error"><i class="fa-solid fa-triangle-exclamation"></i> <?= htmlspecialchars($error) ?></div>
 <?php endif; ?>
 
+<!-- Overall Stock Overview -->
 <div class="overview-card">
     <div class="ov-stats">
         <div class="ov-stat">
@@ -145,16 +176,30 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
             <div class="ov-val ov-remaining <?= $levelClass ?>"><?= number_format($summary['remaining'], 1) ?><small> kg</small></div>
             <div class="ov-label">Remaining</div>
         </div>
-        <div class="ov-stat">
-            <div class="ov-val">₱<?= number_format($summary['avg_price'] ?? 0, 2) ?><small>/kg</small></div>
-            <div class="ov-label">Avg Price</div>
-        </div>
     </div>
     <div class="ov-bar">
         <div class="ov-bar-fill <?= $levelClass ?>" style="width:<?= $pct ?>%"></div>
     </div>
 </div>
 
+<!-- Per-Pond Usage Summary -->
+<?php
+$ponds = ['Pond 1', 'Pond 2', 'Pond 3', 'Pond 4'];
+$pond_map = [];
+foreach ($pond_summary as $ps) { $pond_map[$ps['pond']] = $ps['total_used_kg']; }
+?>
+<div class="pond-grid">
+    <?php foreach ($ponds as $p): ?>
+    <div class="pond-card">
+        <div class="pond-card-title"><?= htmlspecialchars($p) ?></div>
+        <div class="pond-card-val">
+            <?= number_format(($pond_map[$p] ?? 0), 2) ?><small> kg used</small>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+<!-- Tabs -->
 <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('stocklog',this)">
         <i class="fa-solid fa-receipt"></i> Stock-In Log
@@ -164,6 +209,7 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     </button>
 </div>
 
+<!-- Stock-In Log -->
 <div class="tab-panel active" id="tab-stocklog">
     <div class="toolbar">
         <span class="count-label"><?= count($stock_log) ?> record<?= count($stock_log) !== 1 ? 's' : '' ?></span>
@@ -184,9 +230,8 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
                     <tr>
                         <th>Date</th>
                         <th>Quantity</th>
-                        <th>Price / kg</th>
-                        <th>Total Cost</th>
-                        <th></th>
+                        <th>Total Price</th>
+                        <!-- <th></th> -->
                     </tr>
                 </thead>
                 <tbody>
@@ -194,14 +239,8 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
                     <tr>
                         <td><?= date('M d, Y', strtotime($s['date_added'])) ?></td>
                         <td class="val-bold"><?= number_format($s['quantity_kg'], 2) ?> kg</td>
-                        <td>₱<?= number_format($s['price_per_kg'], 2) ?></td>
                         <td class="val-bold">₱<?= number_format($s['quantity_kg'] * $s['price_per_kg'], 2) ?></td>
-                        <td>
-                            <button class="btn-icon-sm danger" title="Delete"
-                                onclick="if(confirm('Delete this stock record?')) window.location='inventory.php?delete_stock=<?= $s['id'] ?>'">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        </td>
+                     
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -210,6 +249,7 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     <?php endif; ?>
 </div>
 
+<!-- Usage Log -->
 <div class="tab-panel" id="tab-usage">
     <div class="toolbar">
         <span class="count-label">Last 100 usage entries</span>
@@ -227,14 +267,26 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
                     <tr>
                         <th>Date</th>
                         <th>Pond</th>
-                        <th>Amount Used</th>
+                        <th>Hito Size</th>
+                
+                        <th>Feed Used</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($usage_log as $u): ?>
                     <tr>
                         <td><?= date('M d, Y', strtotime($u['usage_date'])) ?></td>
-                        <td><span class="pond-badge"><?= htmlspecialchars($u['pond']) ?></span></td>
+                        <td><span class="pond-badge"><?= htmlspecialchars($u['pond'] ?? '—') ?></span></td>
+                        <td>
+                            <?php if (($u['hito_size'] ?? '') === 'small'): ?>
+                                <span class="badge badge-small"><i class="fa-solid fa-fish"></i> Small</span>
+                            <?php elseif (($u['hito_size'] ?? '') === 'large'): ?>
+                                <span class="badge badge-large"><i class="fa-solid fa-fish"></i> Large</span>
+                            <?php else: ?>
+                                <span style="color:#ccc">—</span>
+                            <?php endif; ?>
+                        </td>
+                      
                         <td class="val-bold"><?= number_format($u['used_kg'], 2) ?> kg</td>
                     </tr>
                     <?php endforeach; ?>
@@ -244,6 +296,7 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
     <?php endif; ?>
 </div>
 
+<!-- Add Stock Modal -->
 <div class="modal-overlay" id="modal-stock">
     <div class="modal">
         <div class="modal-header">
@@ -259,16 +312,13 @@ $levelClass = $pct > 40 ? '' : ($pct > 15 ? 'low' : 'critical');
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Quantity (kg)</label>
-                        <input type="number" name="quantity_kg" id="m-qty" placeholder="0.00" step="0.01" min="0.01" required oninput="updateTotal()">
+                        <input type="number" name="quantity_kg" id="m-qty" placeholder="e.g. 50" step="0.01" min="0.01" required>
                     </div>
                     <div class="form-group">
-                        <label>Price per kg (₱)</label>
-                        <input type="number" name="price_per_kg" id="m-price" placeholder="0.00" step="0.01" min="0.01" required oninput="updateTotal()">
+                        <label>Total Price (₱)</label>
+                        <input type="number" name="total_price" id="m-price" placeholder="e.g. 2500" step="0.01" min="0.01" required>
                     </div>
-                    <div class="total-preview">
-                        <span>Total Cost</span>
-                        <strong id="total-preview">₱0.00</strong>
-                    </div>
+
                 </div>
             </div>
             <div class="modal-footer">
@@ -297,11 +347,7 @@ function closeModal(id) {
 document.querySelectorAll('.modal-overlay').forEach(o => {
     o.addEventListener('click', function(e) { if (e.target === this) closeModal(this.id); });
 });
-function updateTotal() {
-    const qty   = parseFloat(document.getElementById('m-qty').value) || 0;
-    const price = parseFloat(document.getElementById('m-price').value) || 0;
-    document.getElementById('total-preview').textContent = '₱' + (qty * price).toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
-}
+
 <?php if ($error): ?>openModal('modal-stock');<?php endif; ?>
 </script>
 

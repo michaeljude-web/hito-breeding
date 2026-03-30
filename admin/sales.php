@@ -117,7 +117,7 @@ $summary = $pdo->query($summary_sql)->fetch(PDO::FETCH_ASSOC);
                     <th>Date</th>
                     <th>Customer</th>
                     <th>Type</th>
-                    <th>Quantity</th>
+                    <th>Quantity (kg)</th>
                     <th>Price / kg</th>
                     <th>Total</th>
                     <th>Recorded By</th>
@@ -138,7 +138,7 @@ $summary = $pdo->query($summary_sql)->fetch(PDO::FETCH_ASSOC);
                         <?php endif; ?>
                     </td>
                     <td><span class="type-badge"><?= htmlspecialchars($o['hito_type']) ?></span></td>
-                    <td class="val-bold"><?= number_format($o['quantity_kg'], 2) ?> kg</td>
+                    <td class="val-bold"><?= number_format($o['quantity_kg'], 2) ?></td>
                     <td>₱<?= number_format($o['price_per_kg'], 2) ?></td>
                     <td class="revenue">₱<?= number_format($o['total_price'], 2) ?></td>
                     <td>
